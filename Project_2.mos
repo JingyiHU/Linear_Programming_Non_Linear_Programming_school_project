@@ -1,0 +1,63 @@
+!@encoding CP936
+!!!!on change les contraintes
+
+model garage_production2
+uses "mmxprs"; !gain access to the Xpress-Optimizer solver
+
+declarations
+	
+mois = 1..4                  !range of time periods
+demande = {150,160,225,180}  !demande per month 150 160 225 180
+coutFabrique = 35            !production cost 35 euros
+coutStockage = 5             !storage cost 5 eoros
+coutBought = 50              !buy cost 50 euros
+capacite = 160               !monthly capacity 160 pneus
+isStock = 0                  !Initial stock we set to 0?
+coutBoughtD = 45             !buy cost from entreprise D
+capaciteBoughtD = 50
+
+f: array(mois) of mpvar      !No. of pneus produced per month
+s: array(mois) of mpvar		 !No. of pneus stored per month
+a: array(mois) of mpvar      !No. of pneus bought per month
+d: array(mois) of mpvar      !No. of pneus bought from D per month (only Jan Feb Mar)
+
+end-declarations
+
+!objective: minimize production cost
+cost:= sum(t in mois) (coutFabrique*f(t) + coutBought*a(t) + coutStockage*s(t) + coutBoughtD*d(t))
+
+!stockage
+forall(t in mois)
+	s(t) = if(t=1,0,f(t-1)) + if(t=1,0,a(t-1)) + if(t>1, s(t-1), isStock) + if(t=1,0,if(t=4,0,d(t-1))) - if(t=1, 0, demande(t-1))
+	!s(t+1) = f(t) + a(t) + if(t=1, isStock, s(t)) - demande(t) !demande has an issue=>solve because array{}
+
+
+!capacity limits
+forall(t in mois) 
+	f(t) <= capacite
+
+!satisfied the demand for every period
+forall(t in mois) 
+	f(t) + s(t) + a(t) + if(t=4,0,d(t)) >= demande(t)
+	
+!maximal number of the pneus bought from D
+sum(t in mois)(if(t=4,0,d(t))) <= capaciteBoughtD
+
+!solve the problem
+minimize(cost)
+
+
+writeln("Begin running model")
+
+forall(t in mois) do
+	writeln("mois=", t)
+	writeln("fabrique=", getsol(f(t)))
+	writeln("stock=", getsol(s(t)))
+	writeln("achete=", getsol(a(t)))
+	writeln("acheteD=", getsol(if(t=4,0,d(t))))
+	writeln("cost is ", getobjval)
+end-do
+
+writeln("End running model")
+
+end-model
