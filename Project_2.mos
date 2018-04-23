@@ -1,61 +1,90 @@
 !@encoding CP936
-!!!!on change les contraintes
 
 model garage_production2
-uses "mmxprs"; !gain access to the Xpress-Optimizer solver
+uses "mmxprs"; ! gain access to the Xpress-Optimizer solver
 
+! sample declarations section
 declarations
 	
-mois = 1..4                  !range of time periods
-demande = {150,160,225,180}  !demande per month 150 160 225 180
-coutFabrique = 35            !production cost 35 euros
-coutStockage = 5             !storage cost 5 eoros
-coutBought = 50              !buy cost 50 euros
-capacite = 160               !monthly capacity 160 pneus
-isStock = 0                  !Initial stock we set to 0?
-coutBoughtD = 45             !buy cost from entreprise D
+mois = 1..4                  ! range of time periods
+stock = 1..5                 ! stock per month
+D = 1..3                     ! first 3 months
+demande = {150,160,225,180}  ! demande per month 150 160 225 180
+coutFabrique = 35            ! production cost 35 euros
+coutStockage = 5             ! storage cost 5 eoros
+coutBought = 50              ! buy cost 50 euros
+capacite = 160               ! monthly capacity 160 pneus
+coutBoughtD = 45             ! buy cost from entreprise D
 capaciteBoughtD = 50
 
 f: array(mois) of mpvar      !No. of pneus produced per month
-s: array(mois) of mpvar		 !No. of pneus stored per month
 a: array(mois) of mpvar      !No. of pneus bought per month
-d: array(mois) of mpvar      !No. of pneus bought from D per month (only Jan Feb Mar)
+s: array(stock) of mpvar		 !No. of pneus stored per month
+d: array(D) of mpvar      !No. of pneus bought from D per month (only Jan Feb Mar)
 
 end-declarations
 
-!objective: minimize production cost
-cost:= sum(t in mois) (coutFabrique*f(t) + coutBought*a(t) + coutStockage*s(t) + coutBoughtD*d(t))
+! Focntion objective: minimize production cost
+cost:= sum(t in mois) f(t)*coutFabrique + sum(t in mois) coutBought*a(t) + sum(t in mois)coutStockage*s(t) + sum(t in D)coutBoughtD*d(t)
 
-!stockage
-forall(t in mois)
-	s(t) = if(t=1,0,f(t-1)) + if(t=1,0,a(t-1)) + if(t>1, s(t-1), isStock) + if(t=1,0,if(t=4,0,d(t-1))) - if(t=1, 0, demande(t-1))
-	!s(t+1) = f(t) + a(t) + if(t=1, isStock, s(t)) - demande(t) !demande has an issue=>solve because array{}
-
-
-!capacity limits
-forall(t in mois) 
+! Constraintes
+! Capacity limits
+forall(t in mois) do
+	f(t) is_integer
+	a(t) is_integer
 	f(t) <= capacite
+	f(t) >= 0
+	a(t) >= 0
+end-do
 
-!satisfied the demand for every period
-forall(t in mois) 
-	f(t) + s(t) + a(t) + if(t=4,0,d(t)) >= demande(t)
-	
+forall(t in stock) do
+	s(t) is_integer
+	s(t) >= 0
+end-do
+
+forall(t in D) do
+	d(t) is_integer
+	d(t) >= 0
+end-do
+
 !maximal number of the pneus bought from D
-sum(t in mois)(if(t=4,0,d(t))) <= capaciteBoughtD
+sum(t in D)d(t) <= capaciteBoughtD
 
-!solve the problem
+
+! stockage
+! product(i) + stock(i) + achete(i) + acheteD(i) - demande(i) = stock(i+1)
+! error: s(t+1) = f(t) + s(t) + a(t) + if(t=4,0,d(t)) - demande(t)
+! error2: soooooooo bazarre!!!!
+!s(1) = 0
+!forall(t in D) do
+!	s(t+1) = f(t) + s(t) + a(t) + d(t) - demande(t)
+!end-do
+!f(4) + a(4) + s(4) - demande(4) = s(5)
+
+!janvier
+s(1) = 0
+f(1) + a(1) + s(1) + d(1) - 150 = s(2)
+!Fevrier
+f(2) + a(2) + s(2) + d(2) - 160 = s(3)
+!Mars
+f(3) + a(3) + s(3) + d(3) - 225 = s(4)
+!Avril	
+f(4) + a(4) + s(4) - 180 = s(5)
+! solve the problem
 minimize(cost)
 
+! print out the solution
+writeln("Begin running model!")
 
-writeln("Begin running model")
+writeln("Sockage initial is ", s(1).sol, ".\n")
 
 forall(t in mois) do
-	writeln("mois=", t)
-	writeln("fabrique=", getsol(f(t)))
-	writeln("stock=", getsol(s(t)))
-	writeln("achete=", getsol(a(t)))
-	writeln("acheteD=", getsol(if(t=4,0,d(t))))
-	writeln("cost is ", getobjval)
+	writeln("Solution:\n Cost is: ", getobjval, "\n")
+	writeln("Mois = ", t, "\n")
+	writeln("Fabrique = ", getsol(f(t)))
+	writeln("Stock = ", getsol(s(t)))
+	writeln("AcheteC = ", getsol(a(t)))
+	writeln("AcheteD = ", getsol(if(t=4,0,d(t))), "\n")
 end-do
 
 writeln("End running model")
