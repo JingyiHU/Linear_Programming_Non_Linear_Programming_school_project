@@ -1,5 +1,5 @@
 # Xpress-LP-NLP
-Linear programming program, give solution to real industry business plan.
+Linear programming, give solution to real industry business plan, tool: Xpress.
 
 Optimization: solving biggest and complex business problems:
 
